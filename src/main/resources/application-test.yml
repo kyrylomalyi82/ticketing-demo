@@ -4,3 +4,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: validate
+  docker:
+    compose:
+          enabled: false
+
+
