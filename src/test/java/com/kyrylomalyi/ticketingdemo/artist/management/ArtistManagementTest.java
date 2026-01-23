@@ -4,6 +4,7 @@ import com.kyrylomalyi.ticketingdemo.artist.ArtistDTO;
 import com.kyrylomalyi.ticketingdemo.artist.mapper.ArtistMapper;
 import com.kyrylomalyi.ticketingdemo.artist.model.Artist;
 import com.kyrylomalyi.ticketingdemo.artist.repository.ArtistRepository;
+import com.kyrylomalyi.ticketingdemo.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,6 +64,6 @@ class ArtistManagementTest {
 
         assertThatThrownBy(() ->
                 service.update(1L, new ArtistDTO(null, "Name", "Bio"))
-        ).isInstanceOf(IllegalArgumentException.class);
+        ).isInstanceOf(ResourceNotFoundException.class);
     }
 }

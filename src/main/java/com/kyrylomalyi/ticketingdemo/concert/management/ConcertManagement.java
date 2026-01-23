@@ -8,6 +8,7 @@ import com.kyrylomalyi.ticketingdemo.concert.ConcertInternalAPI;
 import com.kyrylomalyi.ticketingdemo.concert.mapper.ConcertMapper;
 import com.kyrylomalyi.ticketingdemo.concert.model.Concert;
 import com.kyrylomalyi.ticketingdemo.concert.repository.ConcertRepository;
+import com.kyrylomalyi.ticketingdemo.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,7 +30,7 @@ public class ConcertManagement implements ConcertExternalAPI , ConcertInternalAP
     @Override
     public ConcertDTO create(ConcertDTO dto) {
         if (!artistApi.exists(dto.artistId())){
-            throw new IllegalArgumentException("Artist not found: " + dto.artistId());
+            throw new ResourceNotFoundException("Artist" + dto.artistId());
         }
 
         Concert concert = mapper.toEntity(dto);
@@ -40,7 +41,7 @@ public class ConcertManagement implements ConcertExternalAPI , ConcertInternalAP
     public ConcertDTO update(Long id, ConcertDTO dto) {
 
         if (!repository.existsById(id)) {
-            throw new IllegalArgumentException("Concert not found: " + id);
+            throw new ResourceNotFoundException("Concert " ,id);
         }
 
         Concert concert = mapper.toEntity(dto);
@@ -53,7 +54,7 @@ public class ConcertManagement implements ConcertExternalAPI , ConcertInternalAP
 
     @Override
     public ConcertDTO getById(Long id) {
-        return repository.findById(id).map(mapper::toDto).orElseThrow(() -> new IllegalArgumentException("Concert not found "  + id ));
+        return repository.findById(id).map(mapper::toDto).orElseThrow(() -> new ResourceNotFoundException("Concert " ,id ));
     }
 
     @Override
@@ -63,6 +64,9 @@ public class ConcertManagement implements ConcertExternalAPI , ConcertInternalAP
 
     @Override
     public void delete(Long id) {
+        if (!repository.existsById(id)) {
+            throw new ResourceNotFoundException("Concert", id);
+        }
         repository.deleteById(id);
     }
 

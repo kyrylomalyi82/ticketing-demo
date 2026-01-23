@@ -7,6 +7,7 @@ import com.kyrylomalyi.ticketingdemo.artist.ArtistInternalAPI;
 import com.kyrylomalyi.ticketingdemo.artist.mapper.ArtistMapper;
 import com.kyrylomalyi.ticketingdemo.artist.model.Artist;
 import com.kyrylomalyi.ticketingdemo.artist.repository.ArtistRepository;
+import com.kyrylomalyi.ticketingdemo.exception.ResourceNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,7 +36,7 @@ public class ArtistManagement implements ArtistExternalAPI , ArtistInternalAPI {
 
     @Override
     public ArtistDTO update(Long id, ArtistDTO artistDTO) {
-        Artist artist = repository.findById(id).orElseThrow(() -> new IllegalArgumentException("Artist not found" + id));
+        Artist artist = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Artist", id));
         artist.update(artistDTO.name(), artistDTO.bio());
         return mapper.toDto(artist);
     }
@@ -45,7 +46,7 @@ public class ArtistManagement implements ArtistExternalAPI , ArtistInternalAPI {
 
         return repository.findById(id)
                 .map(mapper::toDto)
-                .orElseThrow(() -> new IllegalArgumentException("Artist not found: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException("Artist" , id));
     }
 
     @Override
@@ -56,7 +57,7 @@ public class ArtistManagement implements ArtistExternalAPI , ArtistInternalAPI {
     @Override
     public void delete(Long id) {
         if(!repository.existsById(id)){
-            throw new IllegalArgumentException("Artist not found:" + id);
+            throw new ResourceNotFoundException("Artist" , id);
         }
         repository.deleteById(id);
     }

@@ -5,6 +5,7 @@ import com.kyrylomalyi.ticketingdemo.concert.ConcertDTO;
 import com.kyrylomalyi.ticketingdemo.concert.mapper.ConcertMapper;
 import com.kyrylomalyi.ticketingdemo.concert.model.Concert;
 import com.kyrylomalyi.ticketingdemo.concert.repository.ConcertRepository;
+import com.kyrylomalyi.ticketingdemo.exception.ResourceNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -56,9 +57,9 @@ class ConcertManagementTest {
 
         assertThatThrownBy(() ->
                 service.create(new ConcertDTO(
-                        null, 1L, "T", "V", Instant.now(), 10 , 0L
+                        null, 1L, "T", "V", Instant.now(), 10, 0L
                 ))
-        ).isInstanceOf(IllegalArgumentException.class);
+        ).isInstanceOf(ResourceNotFoundException.class);
     }
 
     @Test
