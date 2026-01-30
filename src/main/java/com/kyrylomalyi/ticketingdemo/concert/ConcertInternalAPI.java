@@ -6,4 +6,6 @@ public interface ConcertInternalAPI {
 
     void reserveSeats(Long concertId, int seats);
 
+    void releaseSeats(Long concertId, int seats);
+
 }

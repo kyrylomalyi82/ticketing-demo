@@ -6,11 +6,12 @@ import com.kyrylomalyi.ticketingdemo.concert.mapper.ConcertMapper;
 import com.kyrylomalyi.ticketingdemo.concert.model.Concert;
 import com.kyrylomalyi.ticketingdemo.concert.repository.ConcertRepository;
 import com.kyrylomalyi.ticketingdemo.exception.ResourceNotFoundException;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -20,6 +21,8 @@ class ConcertManagementTest {
     private ConcertRepository repository;
     private ConcertMapper mapper;
     private ArtistInternalAPI artistApi;
+    private EntityManager em;
+
     private ConcertManagement service;
 
     @BeforeEach
@@ -27,63 +30,142 @@ class ConcertManagementTest {
         repository = mock(ConcertRepository.class);
         mapper = mock(ConcertMapper.class);
         artistApi = mock(ArtistInternalAPI.class);
-        service = new ConcertManagement(mapper, artistApi, repository);
+        em = mock(EntityManager.class);
+
+        service = new ConcertManagement(mapper, artistApi, repository, em);
     }
 
+    // ========= CREATE =========
+
     @Test
-    void shouldCreateConcertWhenArtistExists() {
-        ConcertDTO dto = new ConcertDTO(
-                null, 1L, "Title", "Venue", Instant.now(), 100 , 0L
+    void create_shouldCreateConcert_whenArtistExists() {
+        // given
+        ConcertDTO input = new ConcertDTO(
+                null, 1L, "Title", "Venue", Instant.now(), 100, 0L
         );
+
         Concert entity = new Concert();
         Concert saved = new Concert();
         saved.setId(10L);
 
         when(artistApi.exists(1L)).thenReturn(true);
-        when(mapper.toEntity(dto)).thenReturn(entity);
+        when(mapper.toEntity(input)).thenReturn(entity);
         when(repository.save(entity)).thenReturn(saved);
         when(mapper.toDto(saved)).thenReturn(
-                new ConcertDTO(10L, 1L, "Title", "Venue", dto.startsAt(), 100 , 0L)
+                new ConcertDTO(10L, 1L, "Title", "Venue", input.startsAt(), 100, 0L)
         );
 
-        ConcertDTO result = service.create(dto);
+        // when
+        ConcertDTO result = service.create(input);
 
+        // then
         assertThat(result.id()).isEqualTo(10L);
+
+        verify(artistApi).exists(1L);
+        verify(mapper).toEntity(input);
+        verify(repository).save(entity);
+        verify(mapper).toDto(saved);
+        verifyNoMoreInteractions(repository, mapper, artistApi);
     }
 
     @Test
-    void shouldFailCreateWhenArtistDoesNotExist() {
+    void create_shouldThrow_whenArtistDoesNotExist() {
+        // given
+        ConcertDTO input = new ConcertDTO(
+                null, 1L, "Title", "Venue", Instant.now(), 100, 0L
+        );
+
         when(artistApi.exists(1L)).thenReturn(false);
 
-        assertThatThrownBy(() ->
-                service.create(new ConcertDTO(
-                        null, 1L, "T", "V", Instant.now(), 10, 0L
-                ))
-        ).isInstanceOf(ResourceNotFoundException.class);
+        // when / then
+        assertThatThrownBy(() -> service.create(input))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Artist");
+
+        verify(artistApi).exists(1L);
+        verifyNoInteractions(repository, mapper);
     }
 
+    // ========= RESERVE =========
+
     @Test
-    void shouldReserveSeats() {
+    void reserveSeats_shouldReserveSeats_withPessimisticLock() {
+        // given
         Concert concert = new Concert();
         concert.setCapacity(10);
         concert.setReserved(0);
 
-        when(repository.findById(1L)).thenReturn(Optional.of(concert));
+        when(em.find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(concert);
 
+        // when
         service.reserveSeats(1L, 3);
 
+        // then
         assertThat(concert.getReserved()).isEqualTo(3);
+
+        verify(em).find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE);
+        verifyNoInteractions(repository);
     }
 
     @Test
-    void shouldFailWhenNotEnoughSeats() {
+    void reserveSeats_shouldThrow_whenConcertNotFound() {
+        // given
+        when(em.find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(null);
+
+        // when / then
+        assertThatThrownBy(() -> service.reserveSeats(1L, 1))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Concert");
+
+        verify(em).find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    @Test
+    void reserveSeats_shouldThrow_whenNotEnoughSeats() {
+        // given
         Concert concert = new Concert();
         concert.setCapacity(5);
         concert.setReserved(5);
 
-        when(repository.findById(1L)).thenReturn(Optional.of(concert));
+        when(em.find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(concert);
 
+        // when / then
         assertThatThrownBy(() -> service.reserveSeats(1L, 1))
-                .isInstanceOf(IllegalStateException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Not enough available seats");
+    }
+
+    // ========= RELEASE =========
+
+    @Test
+    void releaseSeats_shouldDecreaseReservedSeats() {
+        // given
+        Concert concert = new Concert();
+        concert.setCapacity(10);
+        concert.setReserved(5);
+
+        when(em.find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(concert);
+
+        // when
+        service.releaseSeats(1L, 3);
+
+        // then
+        assertThat(concert.getReserved()).isEqualTo(2);
+    }
+
+    @Test
+    void releaseSeats_shouldThrow_whenConcertNotFound() {
+        // given
+        when(em.find(Concert.class, 1L, LockModeType.PESSIMISTIC_WRITE))
+                .thenReturn(null);
+
+        // when / then
+        assertThatThrownBy(() -> service.releaseSeats(1L, 1))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("Concert");
     }
 }

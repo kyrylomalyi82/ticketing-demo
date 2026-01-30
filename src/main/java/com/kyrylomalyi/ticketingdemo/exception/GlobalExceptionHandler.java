@@ -73,7 +73,7 @@ public class GlobalExceptionHandler {
         ErrorResponse body = ErrorResponse.of(
                 HttpStatus.CONFLICT.value(),
                 HttpStatus.CONFLICT.getReasonPhrase(),
-                "Optimistic lock failure",
+                "lock failure",
                 req.getRequestURI(),
                 Map.of("cause", ex.getMessage())
         );
